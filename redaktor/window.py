@@ -18,7 +18,8 @@ from .filefinder import FileFinder
 from .session import save_session, load_session
 from .i18n import tr, set_language, get_language, LANGUAGES
 from .config import load_config, save_config
-
+from .pygments_highlighter import PygmentsHighlighter
+from .pygments_highlighter import PygmentsHighlighter
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -346,7 +347,7 @@ class MainWindow(QMainWindow):
 
     def new_file(self):
         editor = CodeEditor()
-        PythonHighlighter(editor.document())
+        PygmentsHighlighter(editor.document(), "text")
         editor.setProperty("path", None)
 
         idx = self.tabs.addTab(editor, tr("ui.untitled"))
@@ -386,7 +387,8 @@ class MainWindow(QMainWindow):
         editor = CodeEditor()
         editor.setPlainText(text)
         editor.setProperty("path", path)
-        PythonHighlighter(editor.document())
+        lang = self._detect_language(path)
+        PygmentsHighlighter(editor.document(), lang)
         editor.document().setModified(False)
         editor.document().modificationChanged.connect(self.update_title)
         editor.cursorPositionChanged.connect(self.update_status)
@@ -664,3 +666,29 @@ class MainWindow(QMainWindow):
             self.find_panel.hide_panel()
             return
         super().keyPressEvent(event)
+    def _detect_language(self, path: str) -> str:
+        """Определяет язык по расширению файла."""
+        if not path:
+            return "text"
+        ext = os.path.splitext(path)[1].lower()
+        mapping = {
+            ".py": "python",
+            ".js": "javascript",
+            ".html": "html",
+            ".css": "css",
+            ".json": "json",
+            ".md": "markdown",
+            ".sql": "sql",
+            ".cpp": "cpp",
+            ".c": "c",
+            ".h": "c",
+            ".java": "java",
+            ".xml": "xml",
+            ".yaml": "yaml",
+            ".yml": "yaml",
+            ".sh": "bash",
+            ".bat": "batch",
+            ".ps1": "powershell",
+            ".txt": "text",
+        }
+        return mapping.get(ext, "text")
