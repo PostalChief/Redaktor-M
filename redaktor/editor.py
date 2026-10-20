@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
-from PySide6.QtGui import QColor, QFont, QPainter, QTextCharFormat
+from PySide6.QtGui import QColor, QFont, QPainter, QTextCharFormat, QTextCursor
 from PySide6.QtCore import Qt, QRect, QSize
 
 from .folding import FoldingMixin
@@ -30,6 +30,9 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
         self.setFont(font)
         self.setTabStopDistance(4 * self.fontMetrics().horizontalAdvance(' '))
 
+        # Переменная для хранения последнего найденного вхождения (Ctrl+D)
+        self._last_found_cursor = None
+
         self.setStyleSheet("""
             QPlainTextEdit {
                 background-color: #1e1e1e;
@@ -55,7 +58,6 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
         return 12 + self.fontMetrics().horizontalAdvance('9') * digits
 
     def update_line_number_area_width(self, _):
-        # Отступ = номера строк + 16 пикселей под треугольники свёртки
         self.setViewportMargins(self.line_number_area_width() + 16, 0, 0, 0)
 
     def update_line_number_area(self, rect, dy):
@@ -65,7 +67,6 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
             self.line_number_area.update(0, rect.y(),
                                          self.line_number_area.width(), rect.height())
         
-        # Обновляем и область свёртки
         if hasattr(self, 'fold_area'):
             if dy:
                 self.fold_area.scroll(0, dy)
@@ -82,7 +83,6 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
             QRect(cr.left(), cr.top(),
                   self.line_number_area_width(), cr.height())
         )
-        # Обновляем геометрию области свёртки
         self.update_fold_area_geometry()
 
     def line_number_area_paint_event(self, event):
@@ -119,3 +119,83 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
             sel.cursor.clearSelection()
             extra.append(sel)
         self.setExtraSelections(extra)
+
+    # ============================================================
+    #  АВТОЗАКРЫТИЕ СКОБОК И КАВЫЧЕК
+    # ============================================================
+    def keyPressEvent(self, event):
+        pairs = {
+            "(": ")",
+            "[": "]",
+            "{": "}",
+            '"': '"',
+            "'": "'",
+        }
+
+        text = event.text()
+
+        if text in pairs:
+            cursor = self.textCursor()
+            closing = pairs[text]
+
+            if cursor.hasSelection():
+                selected = cursor.selectedText()
+                cursor.insertText(f"{text}{selected}{closing}")
+            else:
+                cursor.insertText(f"{text}{closing}")
+                new_cursor = self.textCursor()
+                new_cursor.movePosition(QTextCursor.PreviousCharacter)
+                self.setTextCursor(new_cursor)
+            return
+
+        if text in pairs.values():
+            cursor = self.textCursor()
+            if cursor.position() < self.document().characterCount():
+                next_char = self.document().characterAt(cursor.position())
+                if next_char == text:
+                    new_cursor = self.textCursor()
+                    new_cursor.movePosition(QTextCursor.NextCharacter)
+                    self.setTextCursor(new_cursor)
+                    return
+
+        super().keyPressEvent(event)
+
+    # ============================================================
+    #  МУЛЬТИКУРСОРЫ (CTRL+D)
+    # ============================================================
+    def select_next_occurrence(self):
+        """Выделяет следующее вхождение текущего слова (Ctrl+D)."""
+        cursor = self.textCursor()
+
+        # Если ничего не выделено — выделяем слово под курсором
+        if not cursor.hasSelection():
+            cursor.select(QTextCursor.WordUnderCursor)
+            self.setTextCursor(cursor)
+            self._last_found_cursor = cursor
+            return
+
+        selected_text = cursor.selectedText()
+        if not selected_text:
+            return
+
+        # Ищем следующее вхождение (начиная с последнего найденного)
+        doc = self.document()
+        search_from = self._last_found_cursor if self._last_found_cursor else cursor
+        found = doc.find(selected_text, search_from)
+
+        if not found.isNull():
+            sel = QTextEdit.ExtraSelection()
+            sel.cursor = found
+            sel.format.setBackground(QColor("#264f78"))
+
+            extras = self.extraSelections()
+            already_exists = False
+            for ex in extras:
+                if ex.cursor.position() == found.position() and ex.cursor.hasSelection():
+                    already_exists = True
+                    break
+
+            if not already_exists:
+                extras.append(sel)
+                self.setExtraSelections(extras)
+                self._last_found_cursor = found

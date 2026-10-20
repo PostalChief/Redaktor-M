@@ -5,21 +5,22 @@ from PySide6.QtWidgets import (
     QMessageBox, QFontDialog, QInputDialog, QWidget, QVBoxLayout
 )
 from PySide6.QtGui import QKeySequence, QTextCursor, QAction
-from PySide6.QtCore import Qt, QDir, QByteArray
-from PySide6.QtCore import QTimer
-from .recent import load_recent, add_recent, clear_recent
+from PySide6.QtCore import Qt, QDir, QByteArray, QTimer
+
 from .commands import Command, CommandRegistry
 from .palette import CommandPalette
 from .editor import CodeEditor
 from .highlighter import PythonHighlighter
+from .pygments_highlighter import PygmentsHighlighter
+from .spellchecker import SpellChecker
 from .filetree import FileTree
 from .findpanel import FindPanel
 from .filefinder import FileFinder
 from .session import save_session, load_session
 from .i18n import tr, set_language, get_language, LANGUAGES
 from .config import load_config, save_config
-from .pygments_highlighter import PygmentsHighlighter
-from .spellchecker import SpellChecker
+from .recent import load_recent, add_recent, clear_recent
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -35,14 +36,14 @@ class MainWindow(QMainWindow):
         self.autosave_enabled = self.cfg.get("autosave", False)
         self.utf8_bom_enabled = self.cfg.get("utf8_bom", False)
 
-        # Недавние файлы
-        self._recent = load_recent()
-
-        # Таймер автосохранения (одиночный, перезапускается при каждом изменении)
+        # Таймер автосохранения
         self._autosave_timer = QTimer(self)
         self._autosave_timer.setSingleShot(True)
-        self._autosave_timer.setInterval(1500)  # 1.5 сек после последнего ввода
+        self._autosave_timer.setInterval(1500)
         self._autosave_timer.timeout.connect(self._do_autosave)
+
+        # Недавние файлы
+        self._recent = load_recent()
 
         # ---------- Вкладки ----------
         self.tabs = QTabWidget()
@@ -148,9 +149,8 @@ class MainWindow(QMainWindow):
                     keywords=["select", "all"]))
         reg(Command("edit.goto_line", "edit.goto_line", "Edit",
                     self.go_to_line, "Ctrl+G", keywords=["goto", "line", "go"]))
-        reg(Command("edit.insert_date", "edit.insert_date", "Edit",
-                    self.insert_datetime, "Ctrl+;",
-                    keywords=["date", "time", "datetime", "insert"]))
+        
+        # --- Поиск и замена ---
         reg(Command("edit.find", "edit.find", "Edit",
                     self.show_find, "Ctrl+F",
                     keywords=["find", "search"]))
@@ -163,6 +163,20 @@ class MainWindow(QMainWindow):
         reg(Command("edit.find_prev", "edit.find_prev", "Edit",
                     lambda: self.find_panel.find_prev(), "Shift+F3",
                     keywords=["find", "previous"]))
+
+        # --- Мультикурсор и Дата ---
+        reg(Command(
+            "edit.select_next", 
+            "edit.select_next", 
+            "Edit",
+            lambda: self.current_editor() and self.current_editor().select_next_occurrence(),
+            "Ctrl+D", 
+            keywords=["select", "next", "occurrence", "multicursor"]
+        ))
+        
+        reg(Command("edit.insert_date", "edit.insert_date", "Edit",
+                    self.insert_datetime, "Ctrl+;",
+                    keywords=["date", "time", "datetime", "insert"]))
 
         # --- View ---
         reg(Command("view.toggle_sidebar", "view.toggle_sidebar", "View",
@@ -197,7 +211,7 @@ class MainWindow(QMainWindow):
     # ============================================================
     def _build_menu_from_commands(self):
         menubar = self.menuBar()
-        menubar.clear()  # при смене языка перестраиваем заново
+        menubar.clear()
 
         categories_order = []
         by_cat = {}
@@ -239,6 +253,7 @@ class MainWindow(QMainWindow):
                     menu.addSeparator()
                     self._add_recent_submenu(menu)
                     menu.addSeparator()
+                    
                     act = QAction(tr("file.autosave"), self)
                     act.setCheckable(True)
                     act.setChecked(self.autosave_enabled)
@@ -251,44 +266,19 @@ class MainWindow(QMainWindow):
                     act2.triggered.connect(self.toggle_utf8_bom)
                     menu.addAction(act2)
 
-    def _set_language(self, lang: str):
-        set_language(lang)
-        cfg = load_config()
-        cfg["language"] = lang
-        save_config(cfg)
-        self._build_menu_from_commands()
-        self._refresh_ui_texts()
-        self.update_status()
-
-    def _refresh_ui_texts(self):
-        """Обновляет тексты кнопок, плейсхолдеров после смены языка."""
-        self.file_tree.btn_open.setText(tr("ui.open_folder"))
-        self.palette.input.setPlaceholderText(tr("ui.palette_placeholder"))
-        self.file_finder.input.setPlaceholderText(tr("ui.finder_placeholder"))
-        self.find_panel.input_find.setPlaceholderText(tr("ui.search_placeholder"))
-        self.find_panel.input_replace.setPlaceholderText(tr("ui.replace_placeholder"))
-        self.find_panel.btn_replace.setText(tr("ui.replace_one"))
-        self.find_panel.btn_replace_all.setText(tr("ui.replace_all"))
     def _add_recent_submenu(self, parent_menu):
-        """Добавляет подменю «Открыть недавние» в родительское меню."""
         recent_menu = parent_menu.addMenu(tr("file.open_recent"))
-
         if not self._recent:
             act = QAction(tr("file.no_recent"), self)
             act.setEnabled(False)
             recent_menu.addAction(act)
             return
-
         for path in self._recent:
-            # В подменю показываем только имя файла + путь через " — "
             label = f"{os.path.basename(path)}  —  {os.path.dirname(path)}"
             act = QAction(label, self)
             act.setToolTip(path)
-            act.triggered.connect(
-                lambda checked=False, p=path: self.open_path(p)
-            )
+            act.triggered.connect(lambda checked=False, p=path: self.open_path(p))
             recent_menu.addAction(act)
-
         recent_menu.addSeparator()
         clear_act = QAction(tr("file.clear_recent"), self)
         clear_act.triggered.connect(self._clear_recent)
@@ -300,12 +290,28 @@ class MainWindow(QMainWindow):
         self._build_menu_from_commands()
         self.status.showMessage(tr("file.no_recent"), 2000)
 
+    def _set_language(self, lang: str):
+        set_language(lang)
+        self.cfg["language"] = lang
+        save_config(self.cfg)
+        self._build_menu_from_commands()
+        self._refresh_ui_texts()
+        self.update_status()
+
+    def _refresh_ui_texts(self):
+        self.file_tree.btn_open.setText(tr("ui.open_folder"))
+        self.palette.input.setPlaceholderText(tr("ui.palette_placeholder"))
+        self.file_finder.input.setPlaceholderText(tr("ui.finder_placeholder"))
+        self.find_panel.input_find.setPlaceholderText(tr("ui.search_placeholder"))
+        self.find_panel.input_replace.setPlaceholderText(tr("ui.replace_placeholder"))
+        self.find_panel.btn_replace.setText(tr("ui.replace_one"))
+        self.find_panel.btn_replace_all.setText(tr("ui.replace_all"))
+
     def _add_action(self, menu, cmd: Command) -> QAction:
         action = QAction(cmd.title, self)
         if cmd.shortcut:
             action.setShortcut(QKeySequence(cmd.shortcut))
             action.setShortcutContext(Qt.WindowShortcut)
-            # \t — Qt разнесёт: title слева, shortcut справа
             action.setText(f"{cmd.title}\t{cmd.shortcut}")
         action.triggered.connect(lambda checked=False, cid=cmd.id:
                                  self.commands.execute(cid))
@@ -313,16 +319,13 @@ class MainWindow(QMainWindow):
         return action
 
     # ============================================================
-    #  ПАЛИТРА
+    #  ПАЛИТРА И FINDER
     # ============================================================
     def show_palette(self):
         self.palette.refresh("")
         self.palette.input.clear()
         self.palette.show_centered()
 
-    # ============================================================
-    #  FUZZY-FINDER
-    # ============================================================
     def show_file_finder(self):
         root = self.file_tree.current_folder()
         self.file_finder.set_root(root)
@@ -333,9 +336,6 @@ class MainWindow(QMainWindow):
         if finder is not None:
             finder.set_root(path)
 
-    # ============================================================
-    #  ПОИСК / ЗАМЕНА
-    # ============================================================
     def show_find(self):
         self.find_panel.show_find()
 
@@ -350,15 +350,15 @@ class MainWindow(QMainWindow):
 
     def new_file(self):
         editor = CodeEditor()
+        PygmentsHighlighter(editor.document(), "text")
         editor._spell_checker = SpellChecker(editor.document(), "ru_RU")
-        SpellChecker(editor.document(), "ru_RU")
         editor.setProperty("path", None)
 
         idx = self.tabs.addTab(editor, tr("ui.untitled"))
         self.tabs.setCurrentIndex(idx)
         editor.document().modificationChanged.connect(self.update_title)
         editor.cursorPositionChanged.connect(self.update_status)
-        editor.textChanged.connect(self._on_editor_modified)   # ← новое
+        editor.textChanged.connect(self._on_editor_modified)
         self.update_title()
 
     def open_file(self):
@@ -392,18 +392,18 @@ class MainWindow(QMainWindow):
         editor.setPlainText(text)
         editor.setProperty("path", path)
         lang = self._detect_language(path)
-        # PygmentsHighlighter(editor.document(), lang)
+        PygmentsHighlighter(editor.document(), lang)
         editor._spell_checker = SpellChecker(editor.document(), "ru_RU")
+        
         editor.document().setModified(False)
         editor.document().modificationChanged.connect(self.update_title)
         editor.cursorPositionChanged.connect(self.update_status)
-        editor.textChanged.connect(self._on_editor_modified)   # ← новое
+        editor.textChanged.connect(self._on_editor_modified)
 
         idx = self.tabs.addTab(editor, os.path.basename(path))
         self.tabs.setCurrentIndex(idx)
         self.update_title()
 
-        # Обновляем список недавних
         self._recent = add_recent(path)
         self._build_menu_from_commands()
 
@@ -426,12 +426,6 @@ class MainWindow(QMainWindow):
             return
         self._write_to(editor, path)
 
-    def _open_for_write(self, path):
-        """Открывает файл для записи, добавляя BOM если включено."""
-        if self.utf8_bom_enabled:
-            return open(path, "w", encoding="utf-8-sig")
-        return open(path, "w", encoding="utf-8")
-
     def _write_to(self, editor, path):
         try:
             with self._open_for_write(path) as f:
@@ -445,49 +439,10 @@ class MainWindow(QMainWindow):
         self.tabs.setTabText(idx, os.path.basename(path))
         self.update_title()
 
-    def toggle_utf8_bom(self):
-        """Переключает запись UTF-8 с BOM."""
-        self.utf8_bom_enabled = not self.utf8_bom_enabled
-        self.cfg["utf8_bom"] = self.utf8_bom_enabled
-        save_config(self.cfg)
-        self._build_menu_from_commands()
-        key = "ui.bom_on" if self.utf8_bom_enabled else "ui.bom_off"
-        self.status.showMessage(tr(key), 2000)
-
-    def toggle_autosave(self):
-        """Переключает автосохранение и сохраняет настройку в конфиг."""
-        self.autosave_enabled = not self.autosave_enabled
-        self.cfg["autosave"] = self.autosave_enabled
-        save_config(self.cfg)
-        self._build_menu_from_commands()  # перерисовать галочку
-        # Показать текущее состояние в статусе
-        key = "ui.autosave_on" if self.autosave_enabled else "ui.autosave_off"
-        self.status.showMessage(tr(key), 2000)
-
-    def _on_editor_modified(self):
-        """Вызывается при любом изменении текста — взводит таймер автосохранения."""
-        if not self.autosave_enabled:
-            return
-        self._autosave_timer.start()
-
-    def _do_autosave(self):
-        """Тихо сохраняет текущий файл, если у него есть путь."""
-        ed = self.current_editor()
-        if not ed:
-            return
-        path = ed.property("path")
-        if not path:
-            return  # Untitled не автосохраняем
-        if not ed.document().isModified():
-            return  # нечего сохранять
-        try:
-            with self._open_for_write(path) as f:
-                f.write(ed.toPlainText())
-        except Exception as e:
-            print(f"[autosave] {e}")
-            return
-        ed.document().setModified(False)
-        self.status.showMessage(tr("ui.saved"), 2000)
+    def _open_for_write(self, path):
+        if self.utf8_bom_enabled:
+            return open(path, "w", encoding="utf-8-sig")
+        return open(path, "w", encoding="utf-8")
 
     def close_tab(self, index):
         if index < 0:
@@ -512,7 +467,7 @@ class MainWindow(QMainWindow):
             self.new_file()
 
     # ============================================================
-    #  ИНТЕРФЕЙС
+    #  ИНТЕРФЕЙС И НАСТРОЙКИ
     # ============================================================
     def update_title(self):
         editor = self.current_editor()
@@ -555,13 +510,10 @@ class MainWindow(QMainWindow):
         editor.centerCursor()
 
     def insert_datetime(self):
-        """Вставляет текущую дату и время в позицию курсора."""
         from datetime import datetime
         ed = self.current_editor()
         if not ed:
             return
-        
-        # Формат: 2026-10-19 14:30:00
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         ed.insertPlainText(now)
 
@@ -574,7 +526,45 @@ class MainWindow(QMainWindow):
             for i in range(self.tabs.count()):
                 self.tabs.widget(i).setFont(font)
 
-    # ---------- Zoom ----------
+    def toggle_autosave(self):
+        self.autosave_enabled = not self.autosave_enabled
+        self.cfg["autosave"] = self.autosave_enabled
+        save_config(self.cfg)
+        self._build_menu_from_commands()
+        key = "ui.autosave_on" if self.autosave_enabled else "ui.autosave_off"
+        self.status.showMessage(tr(key), 2000)
+
+    def toggle_utf8_bom(self):
+        self.utf8_bom_enabled = not self.utf8_bom_enabled
+        self.cfg["utf8_bom"] = self.utf8_bom_enabled
+        save_config(self.cfg)
+        self._build_menu_from_commands()
+        key = "ui.bom_on" if self.utf8_bom_enabled else "ui.bom_off"
+        self.status.showMessage(tr(key), 2000)
+
+    def _on_editor_modified(self):
+        if not self.autosave_enabled:
+            return
+        self._autosave_timer.start()
+
+    def _do_autosave(self):
+        ed = self.current_editor()
+        if not ed:
+            return
+        path = ed.property("path")
+        if not path:
+            return
+        if not ed.document().isModified():
+            return
+        try:
+            with self._open_for_write(path) as f:
+                f.write(ed.toPlainText())
+        except Exception as e:
+            print(f"[autosave] {e}")
+            return
+        ed.document().setModified(False)
+        self.status.showMessage(tr("ui.saved"), 2000)
+
     def zoom_in(self):
         self._zoom(+1)
 
@@ -604,7 +594,7 @@ class MainWindow(QMainWindow):
             ed.setTabStopDistance(4 * ed.fontMetrics().horizontalAdvance(' '))
 
     # ============================================================
-    #  СОХРАНЕНИЕ СЕССИИ
+    #  СЕССИЯ И ЯЗЫК
     # ============================================================
     def closeEvent(self, event):
         self._save_session_now()
@@ -674,16 +664,7 @@ class MainWindow(QMainWindow):
         if 0 <= active < self.tabs.count():
             self.tabs.setCurrentIndex(active)
 
-    # ============================================================
-    #  ГОРЯЧИЕ КЛАВИШИ
-    # ============================================================
-    def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Escape and self.find_panel.isVisible():
-            self.find_panel.hide_panel()
-            return
-        super().keyPressEvent(event)
     def _detect_language(self, path: str) -> str:
-        """Определяет язык по расширению файла."""
         if not path:
             return "text"
         ext = os.path.splitext(path)[1].lower()
@@ -708,3 +689,9 @@ class MainWindow(QMainWindow):
             ".txt": "text",
         }
         return mapping.get(ext, "text")
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Escape and self.find_panel.isVisible():
+            self.find_panel.hide_panel()
+            return
+        super().keyPressEvent(event)

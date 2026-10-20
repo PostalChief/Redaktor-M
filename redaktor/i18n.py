@@ -39,11 +39,12 @@ TRANSLATIONS = {
         "edit.paste": "Вставить",
         "edit.select_all": "Выделить всё",
         "edit.goto_line": "Перейти к строке...",
-        "edit.insert_date": "Вставить дату и время",
         "edit.find": "Найти...",
         "edit.replace": "Найти и заменить...",
         "edit.find_next": "Найти далее",
         "edit.find_prev": "Найти назад",
+        "edit.select_next": "Выделить следующее вхождение",
+        "edit.insert_date": "Вставить дату и время",
 
         # --- View ---
         "view.toggle_sidebar": "Показать/скрыть сайдбар",
@@ -113,11 +114,12 @@ TRANSLATIONS = {
         "edit.paste": "Paste",
         "edit.select_all": "Select All",
         "edit.goto_line": "Go to Line...",
-        "edit.insert_date": "Insert Date and Time",
         "edit.find": "Find...",
         "edit.replace": "Find and Replace...",
         "edit.find_next": "Find Next",
         "edit.find_prev": "Find Previous",
+        "edit.select_next": "Select Next Occurrence",
+        "edit.insert_date": "Insert Date and Time",
 
         # --- View ---
         "view.toggle_sidebar": "Toggle Sidebar",
