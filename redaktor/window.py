@@ -19,7 +19,7 @@ from .session import save_session, load_session
 from .i18n import tr, set_language, get_language, LANGUAGES
 from .config import load_config, save_config
 from .pygments_highlighter import PygmentsHighlighter
-from .pygments_highlighter import PygmentsHighlighter
+from .spellchecker import SpellChecker
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -148,6 +148,9 @@ class MainWindow(QMainWindow):
                     keywords=["select", "all"]))
         reg(Command("edit.goto_line", "edit.goto_line", "Edit",
                     self.go_to_line, "Ctrl+G", keywords=["goto", "line", "go"]))
+        reg(Command("edit.insert_date", "edit.insert_date", "Edit",
+                    self.insert_datetime, "Ctrl+;",
+                    keywords=["date", "time", "datetime", "insert"]))
         reg(Command("edit.find", "edit.find", "Edit",
                     self.show_find, "Ctrl+F",
                     keywords=["find", "search"]))
@@ -347,7 +350,8 @@ class MainWindow(QMainWindow):
 
     def new_file(self):
         editor = CodeEditor()
-        PygmentsHighlighter(editor.document(), "text")
+        editor._spell_checker = SpellChecker(editor.document(), "ru_RU")
+        SpellChecker(editor.document(), "ru_RU")
         editor.setProperty("path", None)
 
         idx = self.tabs.addTab(editor, tr("ui.untitled"))
@@ -388,7 +392,8 @@ class MainWindow(QMainWindow):
         editor.setPlainText(text)
         editor.setProperty("path", path)
         lang = self._detect_language(path)
-        PygmentsHighlighter(editor.document(), lang)
+        # PygmentsHighlighter(editor.document(), lang)
+        editor._spell_checker = SpellChecker(editor.document(), "ru_RU")
         editor.document().setModified(False)
         editor.document().modificationChanged.connect(self.update_title)
         editor.cursorPositionChanged.connect(self.update_status)
@@ -548,6 +553,17 @@ class MainWindow(QMainWindow):
         cursor = QTextCursor(editor.document().findBlockByNumber(n - 1))
         editor.setTextCursor(cursor)
         editor.centerCursor()
+
+    def insert_datetime(self):
+        """Вставляет текущую дату и время в позицию курсора."""
+        from datetime import datetime
+        ed = self.current_editor()
+        if not ed:
+            return
+        
+        # Формат: 2026-10-19 14:30:00
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ed.insertPlainText(now)
 
     def change_font(self):
         editor = self.current_editor()
