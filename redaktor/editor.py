@@ -2,6 +2,8 @@ from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 from PySide6.QtGui import QColor, QFont, QPainter, QTextCharFormat
 from PySide6.QtCore import Qt, QRect, QSize
 
+from .folding import FoldingMixin
+
 
 class LineNumberArea(QWidget):
     def __init__(self, editor):
@@ -15,7 +17,7 @@ class LineNumberArea(QWidget):
         self.editor.line_number_area_paint_event(event)
 
 
-class CodeEditor(QPlainTextEdit):
+class CodeEditor(QPlainTextEdit, FoldingMixin):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.line_number_area = LineNumberArea(self)
@@ -36,8 +38,13 @@ class CodeEditor(QPlainTextEdit):
                 border: none;
             }
         """)
+        
+        # Инициализация номеров строк
         self.update_line_number_area_width(0)
         self.highlight_current_line()
+        
+        # Инициализация свёртки кода (Folding)
+        self.init_folding()
 
     def line_number_area_width(self):
         digits = 1
@@ -48,7 +55,8 @@ class CodeEditor(QPlainTextEdit):
         return 12 + self.fontMetrics().horizontalAdvance('9') * digits
 
     def update_line_number_area_width(self, _):
-        self.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+        # Отступ = номера строк + 16 пикселей под треугольники свёртки
+        self.setViewportMargins(self.line_number_area_width() + 16, 0, 0, 0)
 
     def update_line_number_area(self, rect, dy):
         if dy:
@@ -56,6 +64,14 @@ class CodeEditor(QPlainTextEdit):
         else:
             self.line_number_area.update(0, rect.y(),
                                          self.line_number_area.width(), rect.height())
+        
+        # Обновляем и область свёртки
+        if hasattr(self, 'fold_area'):
+            if dy:
+                self.fold_area.scroll(0, dy)
+            else:
+                self.fold_area.update(0, rect.y(), self.fold_area.width(), rect.height())
+                
         if rect.contains(self.viewport().rect()):
             self.update_line_number_area_width(0)
 
@@ -66,6 +82,8 @@ class CodeEditor(QPlainTextEdit):
             QRect(cr.left(), cr.top(),
                   self.line_number_area_width(), cr.height())
         )
+        # Обновляем геометрию области свёртки
+        self.update_fold_area_geometry()
 
     def line_number_area_paint_event(self, event):
         painter = QPainter(self.line_number_area)
