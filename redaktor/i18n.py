@@ -16,6 +16,10 @@ TRANSLATIONS = {
         "menu.File": "Файл",
         "menu.Edit": "Редактирование",
         "menu.View": "Вид",
+        "menu.Help": "Справка",
+        "help.about": "О программе",
+        "about.title": "О программе Redaktor-M",
+        "about.text": "<h3>Redaktor-M</h3><p>Версия: {version}</p><p>Легкий текстовый редактор для Windows.</p><p>Сделано на Python и PySide6.</p>",
 
         # --- File ---
         "file.new": "Новый файл",
@@ -91,6 +95,10 @@ TRANSLATIONS = {
         "menu.File": "File",
         "menu.Edit": "Edit",
         "menu.View": "View",
+        "menu.Help": "Help",
+        "help.about": "About",
+        "about.title": "About Redaktor-M",
+        "about.text": "<h3>Redaktor-M</h3><p>Version: {version}</p><p>Lightweight text editor for Windows.</p><p>Built with Python and PySide6.</p>",
 
         # --- File ---
         "file.new": "New File",

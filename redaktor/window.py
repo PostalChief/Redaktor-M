@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QKeySequence, QTextCursor, QAction
 from PySide6.QtCore import Qt, QDir, QByteArray, QTimer
-
+from .version import __version__
 from .commands import Command, CommandRegistry
 from .palette import CommandPalette
 from .editor import CodeEditor
@@ -200,6 +200,9 @@ class MainWindow(QMainWindow):
         reg(Command("file.goto_file", "file.goto_file", "View",
                     self.show_file_finder, "Ctrl+P",
                     keywords=["goto", "file", "open", "quick", "finder"]))
+        reg(Command("help.about", "help.about", "Help",
+                    self.show_about, None,
+                    keywords=["about", "version", "info"]))
 
     def _ed(self, method_name: str):
         ed = self.current_editor()
@@ -492,6 +495,11 @@ class MainWindow(QMainWindow):
 
     def toggle_sidebar(self):
         self.file_tree.setVisible(not self.file_tree.isVisible())
+
+    def show_about(self):
+        from PySide6.QtWidgets import QMessageBox
+        text = tr("about.text", version=__version__)
+        QMessageBox.about(self, tr("about.title"), text)
 
     def go_to_line(self):
         editor = self.current_editor()
