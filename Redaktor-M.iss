@@ -90,13 +90,14 @@ Root: HKCR; Subkey: "RedaktorM.log\shell\open\command"; ValueType: string; Value
 Type: filesandordirs; Name: "{app}"
 
 [Code]
-// Уведомляем Проводник об изменениях ассоциаций
+// Уведомляем Проводник об изменениях ассоциаций БЕЗ убийства рабочего стола
 procedure RefreshExplorer();
 var
   ResultCode: Integer;
 begin
-  Exec('cmd.exe', '/c taskkill /f /im explorer.exe & start explorer.exe',
-       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // Используем более мягкий метод: SHChangeNotify через Rundll32
+  // Это заставляет Проводник перечитать ассоциации, не убивая процесс
+  Exec('rundll32.exe', 'shell32.dll,SHChangeNotify', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
