@@ -59,6 +59,7 @@ TRANSLATIONS = {
         "view.language": "Язык",
         "view.language.ru": "Русский",
         "view.language.en": "English",
+        "view.toggle_theme": "Переключить тему (Тёмная/Светлая)",
 
         # --- Палитра и finder ---
         "palette.show": "Палитра команд",
@@ -138,6 +139,7 @@ TRANSLATIONS = {
         "view.language": "Language",
         "view.language.ru": "Русский",
         "view.language.en": "English",
+        "view.toggle_theme": "Toggle Theme (Dark/Light)",
 
         # --- Palette and finder ---
         "palette.show": "Command Palette",

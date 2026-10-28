@@ -38,6 +38,7 @@ class FileTree(QWidget):
         self.tree.doubleClicked.connect(self._on_double_click)
         layout.addWidget(self.tree)
 
+        # Возвращаем темную тему для сайдбара
         self.tree.setStyleSheet("""
             QTreeView {
                 background: #252526; color: #cccccc;
@@ -53,6 +54,10 @@ class FileTree(QWidget):
             QPushButton:hover { background: #4a4a4a; }
         """)
 
+    def apply_theme(self, t):
+        # Заглушка, так как светлую тему мы отключили
+        pass
+
     def choose_folder(self):
         path = QFileDialog.getExistingDirectory(self, "Открыть папку")
         if path:
@@ -65,7 +70,6 @@ class FileTree(QWidget):
             self.on_folder_changed(path)
 
     def current_folder(self):
-        """Возвращает путь текущей корневой папки проекта."""
         return self.model.filePath(self.tree.rootIndex())
 
     def _on_double_click(self, index: QModelIndex):

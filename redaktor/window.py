@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QKeySequence, QTextCursor, QAction
 from PySide6.QtCore import Qt, QDir, QByteArray, QTimer
-from .version import __version__
+
 from .commands import Command, CommandRegistry
 from .palette import CommandPalette
 from .editor import CodeEditor
@@ -20,12 +20,14 @@ from .session import save_session, load_session
 from .i18n import tr, set_language, get_language, LANGUAGES
 from .config import load_config, save_config
 from .recent import load_recent, add_recent, clear_recent
+from .themes import THEMES
+from .version import __version__
 
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Redaktor-M")
+        self.setWindowTitle(f"Redaktor-M {__version__}")
         self.resize(1200, 750)
 
         self.commands = CommandRegistry()
@@ -200,6 +202,8 @@ class MainWindow(QMainWindow):
         reg(Command("file.goto_file", "file.goto_file", "View",
                     self.show_file_finder, "Ctrl+P",
                     keywords=["goto", "file", "open", "quick", "finder"]))
+        
+        # --- Help ---
         reg(Command("help.about", "help.about", "Help",
                     self.show_about, None,
                     keywords=["about", "version", "info"]))
@@ -232,7 +236,6 @@ class MainWindow(QMainWindow):
                     self._add_action(menu, cmd)
                 menu.addSeparator()
 
-                # Подменю «Язык»
                 lang_menu = menu.addMenu(tr("view.language"))
                 current_lang = get_language()
                 for lang_code, lang_name in LANGUAGES.items():
@@ -344,6 +347,9 @@ class MainWindow(QMainWindow):
 
     def show_replace(self):
         self.find_panel.show_replace()
+
+    def show_about(self):
+        QMessageBox.about(self, tr("about.title"), tr("about.text", version=__version__))
 
     # ============================================================
     #  ФАЙЛЫ
@@ -470,7 +476,7 @@ class MainWindow(QMainWindow):
             self.new_file()
 
     # ============================================================
-    #  ИНТЕРФЕЙС И НАСТРОЙКИ
+    #  ИНТЕРФЕЙС, НАСТРОЙКИ И СЕССИЯ
     # ============================================================
     def update_title(self):
         editor = self.current_editor()
@@ -482,7 +488,7 @@ class MainWindow(QMainWindow):
         idx = self.tabs.currentIndex()
         if idx >= 0:
             self.tabs.setTabText(idx, f"{mod}{os.path.basename(path)}")
-        self.setWindowTitle(f"{path} {mod} — {tr('ui.app_name')}")
+        self.setWindowTitle(f"{path} {mod} — {tr('ui.app_name')} {__version__}")
 
     def update_status(self):
         editor = self.current_editor()
@@ -495,11 +501,6 @@ class MainWindow(QMainWindow):
 
     def toggle_sidebar(self):
         self.file_tree.setVisible(not self.file_tree.isVisible())
-
-    def show_about(self):
-        from PySide6.QtWidgets import QMessageBox
-        text = tr("about.text", version=__version__)
-        QMessageBox.about(self, tr("about.title"), text)
 
     def go_to_line(self):
         editor = self.current_editor()
@@ -601,9 +602,6 @@ class MainWindow(QMainWindow):
             ed.update_line_number_area_width(0)
             ed.setTabStopDistance(4 * ed.fontMetrics().horizontalAdvance(' '))
 
-    # ============================================================
-    #  СЕССИЯ И ЯЗЫК
-    # ============================================================
     def closeEvent(self, event):
         self._save_session_now()
         super().closeEvent(event)

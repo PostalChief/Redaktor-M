@@ -7,18 +7,9 @@ from PySide6.QtCore import Qt, Signal, QRegularExpression
 
 
 class FindPanel(QWidget):
-    """
-    Панель поиска/замены внизу окна.
-    Управляется через show_find() / show_replace() / hide_panel().
-    """
-
     closed = Signal()
 
     def __init__(self, editor_provider, parent=None):
-        """
-        editor_provider — функция без аргументов, возвращающая текущий CodeEditor.
-        Это позволяет панели всегда работать с активной вкладкой.
-        """
         super().__init__(parent)
         self.get_editor = editor_provider
         self._build_ui()
@@ -29,7 +20,7 @@ class FindPanel(QWidget):
         root.setContentsMargins(8, 6, 8, 6)
         root.setSpacing(4)
 
-        # ---------- Строка 1: Найти ----------
+        # ---------- Строка 1 ----------
         row1 = QHBoxLayout()
         row1.setSpacing(4)
 
@@ -49,45 +40,35 @@ class FindPanel(QWidget):
         self.lbl_counter = QLabel("")
         self.lbl_counter.setMinimumWidth(90)
         self.lbl_counter.setAlignment(Qt.AlignCenter)
-        self.lbl_counter.setStyleSheet("color: #858585;")
         row1.addWidget(self.lbl_counter)
 
         self.btn_prev = QPushButton("▲")
-        self.btn_prev.setToolTip("Найти назад (Shift+F3)")
-        self.btn_prev.setFixedWidth(32)
         self.btn_prev.clicked.connect(self.find_prev)
         row1.addWidget(self.btn_prev)
 
         self.btn_next = QPushButton("▼")
-        self.btn_next.setToolTip("Найти далее (F3)")
-        self.btn_next.setFixedWidth(32)
         self.btn_next.clicked.connect(self.find_next)
         row1.addWidget(self.btn_next)
 
         self.chk_case = QCheckBox("Aa")
-        self.chk_case.setToolTip("Учитывать регистр")
         self.chk_case.stateChanged.connect(self._on_find_text_changed)
         row1.addWidget(self.chk_case)
 
         self.chk_word = QCheckBox("ab")
-        self.chk_word.setToolTip("Только слово целиком")
         self.chk_word.stateChanged.connect(self._on_find_text_changed)
         row1.addWidget(self.chk_word)
 
         self.chk_regex = QCheckBox(".*")
-        self.chk_regex.setToolTip("Регулярное выражение")
         self.chk_regex.stateChanged.connect(self._on_find_text_changed)
         row1.addWidget(self.chk_regex)
 
         self.btn_close = QPushButton("✕")
-        self.btn_close.setToolTip("Закрыть (Esc)")
-        self.btn_close.setFixedWidth(32)
         self.btn_close.clicked.connect(self.hide_panel)
         row1.addWidget(self.btn_close)
 
         root.addLayout(row1)
 
-        # ---------- Строка 2: Заменить (скрыта по умолчанию) ----------
+        # ---------- Строка 2 ----------
         self.row2_widget = QWidget()
         row2 = QHBoxLayout(self.row2_widget)
         row2.setContentsMargins(0, 0, 0, 0)
@@ -113,50 +94,45 @@ class FindPanel(QWidget):
         root.addWidget(self.row2_widget)
         self.row2_widget.hide()
 
-        self.setStyleSheet("""
-            FindPanel {
-                background: #252526;
-                border-top: 1px solid #3c3c3c;
-            }
-            QLineEdit {
-                background: #3c3c3c; color: #d4d4d4;
-                border: 1px solid #555; border-radius: 3px;
+    def apply_theme(self, t):
+        self.setStyleSheet(f"""
+            FindPanel {{
+                background: {t['panel_bg']};
+                border-top: 1px solid {t['border_color']};
+            }}
+            QLineEdit {{
+                background: {t['app_bg']}; color: {t['text_color']};
+                border: 1px solid {t['border_color']}; border-radius: 3px;
                 padding: 4px 8px;
-            }
-            QLineEdit:focus { border: 1px solid #007acc; }
-            QPushButton {
-                background: #3c3c3c; color: #d4d4d4;
-                border: 1px solid #555; border-radius: 3px;
+            }}
+            QLineEdit:focus {{ border: 1px solid {t['selection_bg']}; }}
+            QPushButton {{
+                background: {t['app_bg']}; color: {t['text_color']};
+                border: 1px solid {t['border_color']}; border-radius: 3px;
                 padding: 4px 8px;
-            }
-            QPushButton:hover { background: #4a4a4a; }
-            QToolButton {
-                background: transparent; color: #d4d4d4;
+            }}
+            QPushButton:hover {{ background: {t['selection_bg']}; }}
+            QToolButton {{
+                background: transparent; color: {t['text_color']};
                 border: none; padding: 4px;
-            }
-            QCheckBox { color: #d4d4d4; }
-            QLabel { color: #858585; }
+            }}
+            QCheckBox {{ color: {t['text_color']}; }}
+            QLabel {{ color: {t['line_number_color']}; }}
         """)
 
-    # ============================================================
-    #  ПОКАЗ / СКРЫТИЕ
-    # ============================================================
     def show_find(self):
-        """Ctrl+F — открыть панель в режиме поиска."""
         self.row2_widget.hide()
         self.btn_toggle_replace.setChecked(False)
         self.btn_toggle_replace.setText("▸")
         self._show_and_focus(self.input_find)
 
     def show_replace(self):
-        """Ctrl+H — открыть панель в режиме замены."""
         self.row2_widget.show()
         self.btn_toggle_replace.setChecked(True)
         self.btn_toggle_replace.setText("▾")
         self._show_and_focus(self.input_find)
 
     def hide_panel(self):
-        """Esc или крестик — скрыть панель и вернуть фокус в редактор."""
         self.hide()
         ed = self.get_editor()
         if ed:
@@ -167,13 +143,12 @@ class FindPanel(QWidget):
         self.show()
         widget.setFocus()
         widget.selectAll()
-        # Если в редакторе есть выделение — подставим его в поле поиска
         ed = self.get_editor()
         if ed:
             cursor = ed.textCursor()
             if cursor.hasSelection():
                 text = cursor.selectedText()
-                if "\u2029" not in text:  # не многострочное
+                if "\u2029" not in text:
                     self.input_find.setText(text)
 
     def _toggle_replace(self):
@@ -181,22 +156,10 @@ class FindPanel(QWidget):
         self.row2_widget.setVisible(visible)
         self.btn_toggle_replace.setText("▾" if visible else "▸")
 
-    # ============================================================
-    #  ПОИСК
-    # ============================================================
-    def _flags(self):
-        flags = QTextDocument.FindFlags()
-        if self.chk_case.isChecked():
-            flags |= QTextDocument.FindCaseSensitively
-        if self.chk_word.isChecked():
-            flags |= QTextDocument.FindWholeWords
-        return flags
-
     def _on_find_text_changed(self):
         self._update_counter()
 
     def _build_pattern(self, needle: str) -> QRegularExpression:
-        """Собирает QRegularExpression из строки + галочек."""
         if self.chk_regex.isChecked():
             pattern = QRegularExpression(needle)
         else:
@@ -209,16 +172,13 @@ class FindPanel(QWidget):
         return pattern
 
     def _update_counter(self):
-        """Обновляет метку 'X из Y' и подсвечивает все совпадения."""
         ed = self.get_editor()
         if not ed:
             self.lbl_counter.setText("")
             return
-
         needle = self.input_find.text()
         if not needle:
             self.lbl_counter.setText("")
-            # Вернём только подсветку текущей строки
             ed.highlight_current_line()
             return
 
@@ -226,7 +186,6 @@ class FindPanel(QWidget):
         pattern = self._build_pattern(needle)
         if not pattern.isValid():
             self.lbl_counter.setText("Regex?")
-            self.lbl_counter.setStyleSheet("color: #f48771;")
             return
 
         matches = []
@@ -239,39 +198,24 @@ class FindPanel(QWidget):
             matches.append(cur)
 
         selections = []
-
-        # Подсветка текущей строки (первой)
-        if not ed.isReadOnly():
-            cur_line = QTextEdit.ExtraSelection()
-            cur_line.format.setBackground(QColor("#2a2d2e"))
-            cur_line.format.setProperty(QTextCharFormat.FullWidthSelection, True)
-            cur_line.cursor = ed.textCursor()
-            cur_line.cursor.clearSelection()
-            selections.append(cur_line)
-
-        # Все совпадения — жёлтым
-        for cur in matches:
-            sel = QTextEdit.ExtraSelection()
-            sel.cursor = cur
-            fmt = QTextCharFormat()
-            fmt.setBackground(QColor("#4a4a00"))
-            sel.format = fmt
-            selections.append(sel)
-
-        # Текущее совпадение — синим
         current_idx = -1
         cur_pos = ed.textCursor().position()
+        
         for i, m in enumerate(matches):
             if m.selectionStart() <= cur_pos <= m.selectionEnd():
                 current_idx = i
                 break
 
-        if current_idx >= 0:
+        for i, cur in enumerate(matches):
             sel = QTextEdit.ExtraSelection()
-            sel.cursor = matches[current_idx]
+            sel.cursor = cur
             fmt = QTextCharFormat()
-            fmt.setBackground(QColor("#007acc"))
-            fmt.setForeground(QColor("#ffffff"))
+            if i == current_idx:
+                fmt.setBackground(QColor("#007acc"))
+                fmt.setForeground(QColor("#ffffff"))
+            else:
+                fmt.setBackground(QColor("#4a4a00"))
+                fmt.setForeground(QColor("#ffffff"))
             sel.format = fmt
             selections.append(sel)
 
@@ -280,13 +224,11 @@ class FindPanel(QWidget):
         total = len(matches)
         if total == 0:
             self.lbl_counter.setText("Нет совпадений")
-            self.lbl_counter.setStyleSheet("color: #f48771;")
         else:
             if current_idx >= 0:
                 self.lbl_counter.setText(f"{current_idx + 1} из {total}")
             else:
                 self.lbl_counter.setText(f"{total} совпад.")
-            self.lbl_counter.setStyleSheet("color: #858585;")
 
     def find_next(self):
         self._find(direction=1)
@@ -313,7 +255,6 @@ class FindPanel(QWidget):
         found = ed.document().find(pattern, ed.textCursor(), flags)
 
         if found.isNull():
-            # Заворачиваем поиск к началу/концу
             cur = QTextCursor(ed.document())
             if direction == -1:
                 cur.movePosition(QTextCursor.End)
@@ -326,9 +267,6 @@ class FindPanel(QWidget):
             ed.centerCursor()
             self._update_counter()
 
-    # ============================================================
-    #  ЗАМЕНА
-    # ============================================================
     def replace_one(self):
         ed = self.get_editor()
         if not ed:

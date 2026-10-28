@@ -30,23 +30,25 @@ class CommandPalette(QDialog):
         self.list.itemClicked.connect(self.run_selected)
         layout.addWidget(self.list)
 
-        self.setStyleSheet("""
-            QDialog { background: #252526; border: 1px solid #454545; }
-            QLineEdit {
-                background: #3c3c3c; color: #d4d4d4;
+        self.refresh("")
+
+    def apply_theme(self, t):
+        """Применяет цвета текущей темы к палитре."""
+        self.setStyleSheet(f"""
+            QDialog {{ background: {t['panel_bg']}; border: 1px solid {t['border_color']}; }}
+            QLineEdit {{
+                background: {t['app_bg']}; color: {t['text_color']};
                 border: none; padding: 8px 12px;
                 font-size: 14px;
-            }
-            QListWidget {
-                background: #252526; color: #cccccc;
+            }}
+            QListWidget {{
+                background: {t['panel_bg']}; color: {t['text_color']};
                 border: none; outline: none;
                 font-size: 13px;
-            }
-            QListWidget::item { padding: 6px 12px; }
-            QListWidget::item:selected { background: #094771; }
+            }}
+            QListWidget::item {{ padding: 6px 12px; }}
+            QListWidget::item:selected {{ background: {t['selection_bg']}; }}
         """)
-
-        self.refresh("")
 
     def eventFilter(self, obj, event):
         if obj is self.input and event.type() == QEvent.KeyPress:

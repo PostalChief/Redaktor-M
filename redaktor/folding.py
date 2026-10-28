@@ -4,7 +4,6 @@ from PySide6.QtCore import Qt, QRect, QSize, QPoint
 
 
 class FoldArea(QWidget):
-    """Область слева (между номерами строк и кодом), где рисуются треугольники."""
     def __init__(self, editor):
         super().__init__(editor)
         self.editor = editor
@@ -20,15 +19,9 @@ class FoldArea(QWidget):
 
 
 class FoldingMixin:
-    """
-    Миксин для CodeEditor, добавляющий свёртку кода.
-    Мы будем подмешивать его в класс CodeEditor.
-    """
     def init_folding(self):
         self.fold_area = FoldArea(self)
-        self.folded_blocks = set()  # Храним номера строк, которые свёрнуты
-        
-        # Переопределяем обновление отступов, чтобы учесть новую область
+        self.folded_blocks = set()
         self.setViewportMargins(self.line_number_area_width() + 16, 0, 0, 0)
         
     def update_fold_area_geometry(self):
@@ -39,7 +32,8 @@ class FoldingMixin:
 
     def fold_area_paint_event(self, event):
         painter = QPainter(self.fold_area)
-        painter.fillRect(event.rect(), QColor("#252526"))
+        bg_color = getattr(self, 'line_number_bg', "#252526")
+        painter.fillRect(event.rect(), QColor(bg_color))
 
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
@@ -48,13 +42,10 @@ class FoldingMixin:
 
         while block.isValid() and top <= event.rect().bottom():
             if block.isVisible() and bottom >= event.rect().top():
-                # Определяем, есть ли блок для свёртки
                 indent = self.block_indent(block)
                 next_block = block.next()
                 
-                # Если следующая строка имеет больший отступ — это начало блока
                 if next_block.isValid() and self.block_indent(next_block) > indent:
-                    # Рисуем треугольник
                     is_folded = block_number in self.folded_blocks
                     self.draw_triangle(painter, int(top), is_folded)
 
@@ -65,20 +56,19 @@ class FoldingMixin:
 
     def draw_triangle(self, painter, top, is_folded):
         painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor("#d4d4d4"))
+        text_color = getattr(self, 'line_number_color', "#d4d4d4")
+        painter.setBrush(QColor(text_color))
         
         y_center = top + self.fontMetrics().height() // 2
         x_center = 8
 
         if is_folded:
-            # Треугольник вправо (▶)
             points = [
                 QPoint(x_center - 3, y_center - 4),
                 QPoint(x_center - 3, y_center + 4),
                 QPoint(x_center + 4, y_center),
             ]
         else:
-            # Треугольник вниз (▼)
             points = [
                 QPoint(x_center - 4, y_center - 3),
                 QPoint(x_center + 4, y_center - 3),
@@ -87,10 +77,8 @@ class FoldingMixin:
         painter.drawPolygon(QPolygon(points))
 
     def fold_area_mouse_press(self, event):
-        x = event.position().x()
         y = event.position().y()
         
-        # Находим, по какой строке кликнули
         block = self.firstVisibleBlock()
         block_number = block.blockNumber()
         top = self.blockBoundingGeometry(block).translated(self.contentOffset()).top()
@@ -98,7 +86,6 @@ class FoldingMixin:
 
         while block.isValid() and top <= y:
             if block.isVisible() and bottom >= y:
-                # Проверяем, есть ли у этого блока что сворачивать
                 indent = self.block_indent(block)
                 next_block = block.next()
                 
@@ -112,12 +99,10 @@ class FoldingMixin:
             block_number += 1
 
     def block_indent(self, block):
-        """Считает количество пробелов в начале строки."""
         text = block.text()
         return len(text) - len(text.lstrip())
 
     def toggle_fold(self, block_number):
-        """Сворачивает или разворачивает блок."""
         if block_number in self.folded_blocks:
             self.folded_blocks.remove(block_number)
             self.unfold_block(block_number)
@@ -129,7 +114,6 @@ class FoldingMixin:
         self.viewport().update()
 
     def fold_block(self, block_number):
-        """Скрывает строки, которые относятся к блоку."""
         start_block = self.document().findBlockByNumber(block_number)
         indent = self.block_indent(start_block)
         
@@ -143,7 +127,6 @@ class FoldingMixin:
         self.document().markContentsDirty(start_block.position(), self.document().characterCount())
 
     def unfold_block(self, block_number):
-        """Показывает скрытые строки."""
         start_block = self.document().findBlockByNumber(block_number)
         indent = self.block_indent(start_block)
         
