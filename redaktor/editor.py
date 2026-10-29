@@ -185,6 +185,29 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
         return block_text[start:pos_in_block]
 
     def keyPressEvent(self, event):
+        # --- Умный отступ по Enter ---
+        if event.key() in (Qt.Key_Return, Qt.Key_Enter):
+            cursor = self.textCursor()
+            block = cursor.block()
+            text = block.text()
+            
+            # Получаем отступ текущей строки
+            indent = ""
+            for char in text:
+                if char in (" ", "\t"):
+                    indent += char
+                else:
+                    break
+            
+            # Проверяем, надо ли увеличить отступ
+            stripped_text = text.strip()
+            if stripped_text.endswith(":") or stripped_text.endswith("{"):
+                indent += "    "  # Добавляем 4 пробела
+                
+            # Вставляем перенос строки и отступ
+            cursor.insertText("\n" + indent)
+            self.setTextCursor(cursor)
+            return
         # --- Автодополнение ---
         if self.completer.popup().isVisible():
             if event.key() in (Qt.Key_Enter, Qt.Key_Return, Qt.Key_Escape, Qt.Key_Tab, Qt.Key_Backtab):

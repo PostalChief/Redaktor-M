@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QWidget
 from PySide6.QtGui import QPainter, QColor, QFont
-from PySide6.QtCore import QRect, QSize
+from PySide6.QtCore import QSize
 
 
 class Minimap(QWidget):
@@ -8,7 +8,7 @@ class Minimap(QWidget):
         super().__init__(editor)
         self.editor = editor
         self.setFixedWidth(80)
-        self.font = QFont("Consolas", 2)
+        self.font = QFont("Monospace", 2)
         self.line_height = 3
         
         self.bg_color = QColor("#1e1e1e")
@@ -32,14 +32,17 @@ class Minimap(QWidget):
         while block.isValid() and y < self.height():
             text = block.text().strip()
             if text:
-                painter.drawText(4, y + self.line_height, text[:100])
+                # Рисуем строку, ограничивая длину
+                painter.drawText(4, int(y + self.line_height), text[:100])
             
             block = block.next()
             y += self.line_height
             
+            # Защита от слишком длинных документов
             if y > doc.blockCount() * self.line_height:
                 break
 
+        # Рисуем ползунок текущей видимой области
         scrollbar = self.editor.verticalScrollBar()
         if scrollbar.maximum() > 0:
             scroll_ratio = scrollbar.value() / scrollbar.maximum()
@@ -47,7 +50,7 @@ class Minimap(QWidget):
             total_lines = doc.blockCount()
             
             if total_lines > 0:
-                viewport_height = int((visible_lines / total_lines) * self.height())
+                viewport_height = max(10, int((visible_lines / total_lines) * self.height()))
                 viewport_y = int(scroll_ratio * (self.height() - viewport_height))
                 
                 self.viewport_color.setAlpha(80)
