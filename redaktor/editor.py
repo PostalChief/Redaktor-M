@@ -1,9 +1,10 @@
 from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 from PySide6.QtGui import QColor, QFont, QPainter, QTextCharFormat, QTextCursor
-from PySide6.QtCore import Qt, QRect, QSize
+from PySide6.QtCore import Qt, QRect, QSize, QTimer
 
 from .folding import FoldingMixin
 from .minimap import Minimap
+from .completer import CodeCompleter
 
 
 class LineNumberArea(QWidget):
@@ -37,6 +38,7 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
 
         self._last_found_cursor = None
 
+        # Стили
         self.setStyleSheet("""
             QPlainTextEdit {
                 background-color: #1e1e1e;
@@ -46,10 +48,35 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
             }
         """)
         
+        # Инициализация миникарты
         self.minimap = Minimap(self)
+        
+        # Инициализация автодополнения
+        self.completer = CodeCompleter(self)
+        self.completer.setWidget(self)
+        self.completer.popup().setStyleSheet("""
+            QListView {
+                background: #252526; color: #d4d4d4;
+                border: 1px solid #454545;
+                selection-background-color: #094771;
+            }
+        """)
+        
+        # Таймер для обновления словаря автодополнения
+        self._completer_timer = QTimer()
+        self._completer_timer.setSingleShot(True)
+        self._completer_timer.setInterval(500) # 0.5 сек после последнего нажатия
+        self._completer_timer.timeout.connect(self._update_completer_words)
+        self.textChanged.connect(self._completer_timer.start)
+        
         self.update_line_number_area_width(0)
         self.highlight_current_line()
         self.init_folding()
+
+    def _update_completer_words(self):
+        """Собирает слова из текста для автодополнения (с задержкой)."""
+        if hasattr(self, 'completer'):
+            self.completer.update_words(self.toPlainText())
 
     def line_number_area_width(self):
         digits = 1
@@ -146,16 +173,48 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
         self.update()
         self.line_number_area.update()
 
+    def _text_under_cursor(self):
+        cursor = self.textCursor()
+        block_text = cursor.block().text()
+        pos_in_block = cursor.positionInBlock()
+        
+        start = pos_in_block
+        while start > 0 and (block_text[start - 1].isalnum() or block_text[start - 1] == "_"):
+            start -= 1
+            
+        return block_text[start:pos_in_block]
+
     def keyPressEvent(self, event):
-        # --- 1. Обработка Tab и Shift+Tab ---
+        # --- Автодополнение ---
+        if self.completer.popup().isVisible():
+            if event.key() in (Qt.Key_Enter, Qt.Key_Return, Qt.Key_Escape, Qt.Key_Tab, Qt.Key_Backtab):
+                event.ignore()
+                return
+
+        if event.text() and (event.text().isalnum() or event.text() == "_"):
+            super().keyPressEvent(event)
+            
+            prefix = self._text_under_cursor()
+            if prefix and len(prefix) >= 2:
+                self.completer.setCompletionPrefix(prefix)
+                if self.completer.completionCount() > 0:
+                    rect = self.cursorRect()
+                    rect.setWidth(self.completer.popup().sizeHintForColumn(0) + 
+                                  self.completer.popup().verticalScrollBar().sizeHint().width() + 20)
+                    self.completer.complete(rect)
+            else:
+                self.completer.popup().hide()
+            return
+
+        # --- Tab и Shift+Tab ---
         if event.key() == Qt.Key_Tab and not event.modifiers():
             self._indent_selection()
             return
-        if event.key() == Qt.Key_Backtab:  # Backtab — это Shift+Tab
+        if event.key() == Qt.Key_Backtab:
             self._unindent_selection()
             return
 
-        # --- 2. Автозакрытие скобок ---
+        # --- Автозакрытие скобок ---
         pairs = {
             "(": ")", "[": "]", "{": "}",
             '"': '"', "'": "'",
@@ -187,43 +246,31 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
         super().keyPressEvent(event)
 
     def _indent_selection(self):
-        """Сдвигает выделенный блок вправо на 4 пробела."""
         cursor = self.textCursor()
         if not cursor.hasSelection():
-            # Если ничего не выделено — вставляем таб (4 пробела)
             cursor.insertText("    ")
             return
 
         start = cursor.selectionStart()
         end = cursor.selectionEnd()
-        
-        # Находим начальную и конечную строки
         start_block = self.document().findBlock(start)
         end_block = self.document().findBlock(end)
         
-        # Начинаем редактирование (для Undo)
         cursor.beginEditBlock()
-        
         block = start_block
         while block.isValid():
-            # Ставим курсор в начало строки
             block_cursor = QTextCursor(block)
             block_cursor.movePosition(QTextCursor.StartOfBlock)
-            # Вставляем пробелы
             block_cursor.insertText("    ")
-            
             if block == end_block:
                 break
             block = block.next()
-            
         cursor.endEditBlock()
-        self.setTextCursor(cursor) # Возвращаем выделение
+        self.setTextCursor(cursor)
 
     def _unindent_selection(self):
-        """Сдвигает выделенный блок влево (убирает 4 пробела)."""
         cursor = self.textCursor()
         if not cursor.hasSelection():
-            # Если ничего не выделено, пытаемся удалить пробелы перед курсором
             block = cursor.block()
             text = block.text()
             pos_in_block = cursor.positionInBlock()
@@ -234,17 +281,14 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
 
         start = cursor.selectionStart()
         end = cursor.selectionEnd()
-        
         start_block = self.document().findBlock(start)
         end_block = self.document().findBlock(end)
         
         cursor.beginEditBlock()
-        
         block = start_block
         while block.isValid():
             block_cursor = QTextCursor(block)
             block_cursor.movePosition(QTextCursor.StartOfBlock)
-            # Проверяем, есть ли в начале строки пробелы для удаления
             text = block.text()
             if text.startswith("    "):
                 block_cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, 4)
@@ -259,9 +303,9 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
             if block == end_block:
                 break
             block = block.next()
-            
         cursor.endEditBlock()
-        self.setTextCursor(cursor)    
+        self.setTextCursor(cursor)
+
     def select_next_occurrence(self):
         cursor = self.textCursor()
         if not cursor.hasSelection():
