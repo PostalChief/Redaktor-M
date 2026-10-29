@@ -17,9 +17,6 @@ TRANSLATIONS = {
         "menu.Edit": "Редактирование",
         "menu.View": "Вид",
         "menu.Help": "Справка",
-        "help.about": "О программе",
-        "about.title": "О программе Redaktor-M",
-        "about.text": "<h3>Redaktor-M</h3><p>Версия: {version}</p><p>Легкий текстовый редактор для Windows.</p><p>Сделано на Python и PySide6.</p>",
 
         # --- File ---
         "file.new": "Новый файл",
@@ -59,11 +56,30 @@ TRANSLATIONS = {
         "view.language": "Язык",
         "view.language.ru": "Русский",
         "view.language.en": "English",
-        "view.toggle_theme": "Переключить тему (Тёмная/Светлая)",
 
         # --- Палитра и finder ---
         "palette.show": "Палитра команд",
         "file.goto_file": "Перейти к файлу...",
+
+        # --- Help ---
+        "help.about": "О программе",
+        "about.title": "О программе Redaktor-M",
+        "about.text": "<h3>Redaktor-M</h3><p>Версия: {version}</p><p>Легкий текстовый редактор для Windows и Linux.</p><p>Сделано на Python и PySide6.</p>",
+
+        # --- FileTree (Файловый менеджер) ---
+        "filetree.create_file": "Создать файл",
+        "filetree.create_folder": "Создать папку",
+        "filetree.rename": "Переименовать",
+        "filetree.delete": "Удалить",
+        "filetree.delete_confirm": "Вы уверены, что хотите удалить «{name}»?",
+        "filetree.create_file_prompt": "Введите имя файла (с расширением):",
+        "filetree.create_folder_prompt": "Введите имя папки:",
+        "filetree.rename_prompt": "Новое имя:",
+        "filetree.error_title": "Ошибка",
+        "filetree.error_create_file": "Не удалось создать файл:\n{e}",
+        "filetree.error_create_folder": "Не удалось создать папку:\n{e}",
+        "filetree.error_rename": "Не удалось переименовать:\n{e}",
+        "filetree.error_delete": "Не удалось удалить:\n{e}",
 
         # --- UI-элементы ---
         "ui.open_folder": "📂 Открыть папку",
@@ -97,9 +113,6 @@ TRANSLATIONS = {
         "menu.Edit": "Edit",
         "menu.View": "View",
         "menu.Help": "Help",
-        "help.about": "About",
-        "about.title": "About Redaktor-M",
-        "about.text": "<h3>Redaktor-M</h3><p>Version: {version}</p><p>Lightweight text editor for Windows.</p><p>Built with Python and PySide6.</p>",
 
         # --- File ---
         "file.new": "New File",
@@ -139,11 +152,30 @@ TRANSLATIONS = {
         "view.language": "Language",
         "view.language.ru": "Русский",
         "view.language.en": "English",
-        "view.toggle_theme": "Toggle Theme (Dark/Light)",
 
         # --- Palette and finder ---
         "palette.show": "Command Palette",
         "file.goto_file": "Go to File...",
+
+        # --- Help ---
+        "help.about": "About",
+        "about.title": "About Redaktor-M",
+        "about.text": "<h3>Redaktor-M</h3><p>Version: {version}</p><p>Lightweight text editor for Windows and Linux.</p><p>Built with Python and PySide6.</p>",
+
+        # --- FileTree (File Manager) ---
+        "filetree.create_file": "Create File",
+        "filetree.create_folder": "Create Folder",
+        "filetree.rename": "Rename",
+        "filetree.delete": "Delete",
+        "filetree.delete_confirm": "Are you sure you want to delete \"{name}\"?",
+        "filetree.create_file_prompt": "Enter file name (with extension):",
+        "filetree.create_folder_prompt": "Enter folder name:",
+        "filetree.rename_prompt": "New name:",
+        "filetree.error_title": "Error",
+        "filetree.error_create_file": "Could not create file:\n{e}",
+        "filetree.error_create_folder": "Could not create folder:\n{e}",
+        "filetree.error_rename": "Could not rename:\n{e}",
+        "filetree.error_delete": "Could not delete:\n{e}",
 
         # --- UI elements ---
         "ui.open_folder": "📂 Open Folder",

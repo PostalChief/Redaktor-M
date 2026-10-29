@@ -147,6 +147,15 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
         self.line_number_area.update()
 
     def keyPressEvent(self, event):
+        # --- 1. Обработка Tab и Shift+Tab ---
+        if event.key() == Qt.Key_Tab and not event.modifiers():
+            self._indent_selection()
+            return
+        if event.key() == Qt.Key_Backtab:  # Backtab — это Shift+Tab
+            self._unindent_selection()
+            return
+
+        # --- 2. Автозакрытие скобок ---
         pairs = {
             "(": ")", "[": "]", "{": "}",
             '"': '"', "'": "'",
@@ -177,6 +186,82 @@ class CodeEditor(QPlainTextEdit, FoldingMixin):
 
         super().keyPressEvent(event)
 
+    def _indent_selection(self):
+        """Сдвигает выделенный блок вправо на 4 пробела."""
+        cursor = self.textCursor()
+        if not cursor.hasSelection():
+            # Если ничего не выделено — вставляем таб (4 пробела)
+            cursor.insertText("    ")
+            return
+
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+        
+        # Находим начальную и конечную строки
+        start_block = self.document().findBlock(start)
+        end_block = self.document().findBlock(end)
+        
+        # Начинаем редактирование (для Undo)
+        cursor.beginEditBlock()
+        
+        block = start_block
+        while block.isValid():
+            # Ставим курсор в начало строки
+            block_cursor = QTextCursor(block)
+            block_cursor.movePosition(QTextCursor.StartOfBlock)
+            # Вставляем пробелы
+            block_cursor.insertText("    ")
+            
+            if block == end_block:
+                break
+            block = block.next()
+            
+        cursor.endEditBlock()
+        self.setTextCursor(cursor) # Возвращаем выделение
+
+    def _unindent_selection(self):
+        """Сдвигает выделенный блок влево (убирает 4 пробела)."""
+        cursor = self.textCursor()
+        if not cursor.hasSelection():
+            # Если ничего не выделено, пытаемся удалить пробелы перед курсором
+            block = cursor.block()
+            text = block.text()
+            pos_in_block = cursor.positionInBlock()
+            if text[:pos_in_block].endswith("    "):
+                for _ in range(4):
+                    cursor.deletePreviousChar()
+            return
+
+        start = cursor.selectionStart()
+        end = cursor.selectionEnd()
+        
+        start_block = self.document().findBlock(start)
+        end_block = self.document().findBlock(end)
+        
+        cursor.beginEditBlock()
+        
+        block = start_block
+        while block.isValid():
+            block_cursor = QTextCursor(block)
+            block_cursor.movePosition(QTextCursor.StartOfBlock)
+            # Проверяем, есть ли в начале строки пробелы для удаления
+            text = block.text()
+            if text.startswith("    "):
+                block_cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, 4)
+                block_cursor.removeSelectedText()
+            elif text.startswith("\t"):
+                block_cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, 1)
+                block_cursor.removeSelectedText()
+            elif text.startswith(" "):
+                block_cursor.movePosition(QTextCursor.Right, QTextCursor.KeepAnchor, 1)
+                block_cursor.removeSelectedText()
+            
+            if block == end_block:
+                break
+            block = block.next()
+            
+        cursor.endEditBlock()
+        self.setTextCursor(cursor)    
     def select_next_occurrence(self):
         cursor = self.textCursor()
         if not cursor.hasSelection():
