@@ -15,6 +15,7 @@ from .pygments_highlighter import PygmentsHighlighter
 from .spellchecker import SpellChecker
 from .filetree import FileTree
 from .findpanel import FindPanel
+from .projectsearch import ProjectSearchPanel
 from .filefinder import FileFinder
 from .session import save_session, load_session
 from .i18n import tr, set_language, get_language, LANGUAGES
@@ -76,8 +77,10 @@ class MainWindow(QMainWindow):
         self.splitter.setSizes([260, 940])
         self.splitter.setStyleSheet("QSplitter::handle { background: #3c3c3c; }")
 
-        # ---------- Панель поиска ----------
+        # ---------- Панели поиска ----------
         self.find_panel = FindPanel(self.current_editor)
+        self.project_search_panel = ProjectSearchPanel(self.file_tree.current_folder)
+        self.project_search_panel.file_opened.connect(self.open_at_line)
 
         # ---------- Центральный виджет ----------
         central = QWidget()
@@ -86,13 +89,13 @@ class MainWindow(QMainWindow):
         central_layout.setSpacing(0)
         central_layout.addWidget(self.splitter, 1)
         central_layout.addWidget(self.find_panel)
+        central_layout.addWidget(self.project_search_panel)
         self.setCentralWidget(central)
 
         self.status = self.statusBar()
 
         # ---------- Палитра и finder ДО регистрации команд ----------
         self.palette = CommandPalette(self.commands, self)
-
         self.file_finder = FileFinder(self)
         self.file_finder.set_on_open(self.open_path)
 
@@ -165,6 +168,9 @@ class MainWindow(QMainWindow):
         reg(Command("edit.find_prev", "edit.find_prev", "Edit",
                     lambda: self.find_panel.find_prev(), "Shift+F3",
                     keywords=["find", "previous"]))
+        reg(Command("edit.find_in_files", "edit.find_in_files", "Edit",
+                    self.show_project_search, "Ctrl+Shift+F",
+                    keywords=["find", "files", "project", "search"]))
 
         # --- Мультикурсор и Дата ---
         reg(Command(
@@ -347,6 +353,18 @@ class MainWindow(QMainWindow):
 
     def show_replace(self):
         self.find_panel.show_replace()
+
+    def show_project_search(self):
+        self.project_search_panel.show_panel()
+
+    def open_at_line(self, path: str, line_num: int):
+        self.open_path(path)
+        ed = self.current_editor()
+        if ed:
+            block = ed.document().findBlockByNumber(line_num - 1)
+            cursor = QTextCursor(block)
+            ed.setTextCursor(cursor)
+            ed.centerCursor()
 
     def show_about(self):
         QMessageBox.about(self, tr("about.title"), tr("about.text", version=__version__))
@@ -697,7 +715,11 @@ class MainWindow(QMainWindow):
         return mapping.get(ext, "text")
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key_Escape and self.find_panel.isVisible():
-            self.find_panel.hide_panel()
-            return
+        if event.key() == Qt.Key_Escape:
+            if self.project_search_panel.isVisible():
+                self.project_search_panel.hide()
+                return
+            if self.find_panel.isVisible():
+                self.find_panel.hide_panel()
+                return
         super().keyPressEvent(event)

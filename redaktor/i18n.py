@@ -46,6 +46,7 @@ TRANSLATIONS = {
         "edit.find_prev": "Найти назад",
         "edit.select_next": "Выделить следующее вхождение",
         "edit.insert_date": "Вставить дату и время",
+        "edit.find_in_files": "Найти во всех файлах...",
 
         # --- View ---
         "view.toggle_sidebar": "Показать/скрыть сайдбар",
@@ -80,6 +81,15 @@ TRANSLATIONS = {
         "filetree.error_create_folder": "Не удалось создать папку:\n{e}",
         "filetree.error_rename": "Не удалось переименовать:\n{e}",
         "filetree.error_delete": "Не удалось удалить:\n{e}",
+
+        # --- Project Search (Поиск по файлам) ---
+        "projectsearch.title": "Поиск в файлах",
+        "projectsearch.placeholder": "Найти во всех файлах...",
+        "projectsearch.button": "Искать",
+        "projectsearch.searching": "Поиск...",
+        "projectsearch.not_found": "Ничего не найдено",
+        "projectsearch.found": "Найдено совпадений: {count}",
+        "projectsearch.no_folder": "Папка проекта не открыта",
 
         # --- UI-элементы ---
         "ui.open_folder": "📂 Открыть папку",
@@ -142,6 +152,7 @@ TRANSLATIONS = {
         "edit.find_prev": "Find Previous",
         "edit.select_next": "Select Next Occurrence",
         "edit.insert_date": "Insert Date and Time",
+        "edit.find_in_files": "Find in Files...",
 
         # --- View ---
         "view.toggle_sidebar": "Toggle Sidebar",
@@ -176,6 +187,15 @@ TRANSLATIONS = {
         "filetree.error_create_folder": "Could not create folder:\n{e}",
         "filetree.error_rename": "Could not rename:\n{e}",
         "filetree.error_delete": "Could not delete:\n{e}",
+
+        # --- Project Search (Find in Files) ---
+        "projectsearch.title": "Find in Files",
+        "projectsearch.placeholder": "Find in all files...",
+        "projectsearch.button": "Search",
+        "projectsearch.searching": "Searching...",
+        "projectsearch.not_found": "No matches found",
+        "projectsearch.found": "Found {count} matches",
+        "projectsearch.no_folder": "Project folder is not open",
 
         # --- UI elements ---
         "ui.open_folder": "📂 Open Folder",
